@@ -1,5 +1,5 @@
 import sys, os
-sys.path.insert(0, '/Users/ehsan/Desktop/NFL_Prediction/')
+sys.path.insert(0, '/Users/ejjaha/Desktop/NFL_prediction_Repo')
 
 import pandas as pd
 import seaborn as sns
@@ -19,11 +19,18 @@ from imputation import impute_categories
 
 
 
-def cleaning_blue_print(data, is_train = True, save = False):
+def cleaning_blue_print(data, is_train = True, save = False, player_statistics = None):
     # cleaning dataset 
     clean_data = data_cleaning.clean_reformat(data)
     clean_data = data_cleaning.group_feature(clean_data)
     # engineering new features
+    if is_train:
+        player_strength = data_cleaning.rush_player_statistics(clean_data)
+    elif is_train == False:
+        player_strength = player_statistics
+    # print(player_strength.head())
+    clean_data = pd.merge(clean_data, player_strength, how = 'left', left_on = 'NflIdRusher', right_on = 'RusherId')
+    clean_data[['RusherHeight', 'RusherWeight', 'RusherYards', 'RusherAge']] = clean_data[['RusherHeight', 'RusherWeight', 'RusherYards', 'RusherAge']].fillna(0)
     engineered_data = data_cleaning.engineer_feature(clean_data)
     # imputation 
     imputed_data = data_cleaning.impute_feature(engineered_data)
@@ -33,7 +40,7 @@ def cleaning_blue_print(data, is_train = True, save = False):
         trimmed_data.to_csv('datasets/train_cleaned_data_v1_1.csv', index = False)
     elif save:
         trimmed_data.to_csv('datasets/test_cleaned_data_v1_1.csv', index = False)
-    return trimmed_data
+    return trimmed_data, player_strength
 
 def spatial_blue_print(data, is_train = True, save = False):
     # clean_dataset
@@ -52,7 +59,7 @@ def spatial_blue_print(data, is_train = True, save = False):
 
 
 def train_my_model(train_dataset):
-    clean_data = cleaning_blue_print(train_dataset, save = True)
+    clean_data, rusher_char = cleaning_blue_print(train_dataset, save = True)
     spatial_data = spatial_blue_print(train_dataset, save = True)
     # for testing purposes
     # clean_data = pd.read_csv('datasets/train_cleaned_data_v1_1.csv')
@@ -72,17 +79,20 @@ def train_my_model(train_dataset):
     enc = OrdinalEncoder()
     enc.fit(dataset[cat_features])
     x_train[cat_features] = enc.transform(x_train[cat_features])
+    # print(cat_features)
     # Random Forrest model
     RF_model = RandomForestRegressor()
     RF_model.fit(x_train, y_train)
-    return(RF_model, enc, cat_features)    
+    return(RF_model, enc, cat_features, rusher_char)    
 
-def make_my_predictions(model, encoder, cat_features, dataset, sample_prediction_df):
-    clean_dataset = cleaning_blue_print(dataset)
+def make_my_predictions(model, encoder, cat_features, dataset, sample_prediction_df, rusher_char):
+    clean_dataset, _ = cleaning_blue_print(data = dataset, is_train = False, player_statistics = rusher_char)
+    # print(clean_dataset.isnull().sum())
     clean_dataset = impute_categories(clean_dataset, cat_features, encoder.categories_)
     spatial_data = spatial_blue_print(dataset)
     total_data = pd.merge(clean_dataset, spatial_data, left_on = "GameSnap", right_on = "_GameSnap", how = 'left')
     model_dataset = total_data.drop(['GameSnap', '_GameSnap'], axis = 1)
+    # print(model_dataset.isnull().sum().to_string())
     # cat_features = model_dataset.select_dtypes(include = ['object']).columns
     # model_dataset[cat_features] = encoder.transform(model_dataset[cat_features])
     predictions = model.predict(model_dataset)
@@ -104,15 +114,16 @@ def MSE(predictions, observations):
 
 
 if __name__ == "__main__":
-
+    # train_ds = pd.read_csv('datasets/split_train_30.csv')
+    # cleaning_blue_print(train_ds)
     # cleaning_blue_print(train_data)
     train_ds = pd.read_csv('datasets/split_train_30.csv')[:418]
     test_ds = pd.read_csv('datasets/split_test_30.csv')[:418]
     observations = test_ds[['PlayId', 'Yards']].drop_duplicates().Yards
     test_ds = test_ds.drop('Yards', axis = 1)
-    model, encoder, cat_features = train_my_model(train_ds)
+    model, encoder, cat_features, rusher = train_my_model(train_ds)
     sample_prediction_df =  pd.DataFrame(0, index = np.arange(len(observations)), columns = np.arange(-99, 100))
-    prediction_matrix, predictions = make_my_predictions(model, encoder, cat_features, test_ds, sample_prediction_df)
+    prediction_matrix, predictions = make_my_predictions(model, encoder, cat_features, test_ds, sample_prediction_df, rusher_char = rusher)
     model_performance = evaluate_model(prediction_matrix, observations)
     model_mse = MSE(predictions, observations)
     print('the performance of the model is %.2f and the model MSE is %.2f' %(model_performance, model_mse))

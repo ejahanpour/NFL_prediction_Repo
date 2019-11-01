@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import re
+from sklearn import preprocessing
 
 ## helper functions
 def numerize(x):
@@ -15,7 +16,7 @@ def find_position_number(row, pos):
     except:
         return 0
 
-###########
+###########Field
 def clean_reformat(dataset):
     dataset.loc[dataset.PossessionTeam == 'ARZ', 'PossessionTeam'] = 'ARI'
     dataset.loc[dataset.PossessionTeam == 'BLT', 'PossessionTeam'] = 'BAL'
@@ -41,7 +42,23 @@ def clean_reformat(dataset):
     dataset['WindSpeed'] = dataset['WindSpeed'].astype(str).str.strip()
     dataset.loc[dataset.WindSpeed == 'Calm', 'WindSpeed'] = '0'
     return dataset
+
+def rush_player_statistics(dataset):
+    player_features = dataset[['NflId', 'PlayerHeight', 'PlayerWeight', 'PlayerBirthDate', 'Position']].drop_duplicates()
+    player_rush_info = dataset.loc[dataset.NflId == dataset.NflIdRusher, ['PlayId', 'NflId', 'NflIdRusher', 'Yards']].drop_duplicates()
+    player_yards = player_rush_info[['NflId', 'Yards']].groupby('NflId').mean().reset_index()
+    player_features = pd.merge(player_features, player_yards, on = 'NflId', how = 'left')
+    player_features['PlayerHeight'] = player_features.PlayerHeight.map(lambda x: 12.0*int(x.split('-')[0]) + int(x.split('-')[1]))
+    player_features['PlayerAge'] = (pd.Timestamp('now') - pd.to_datetime(player_features['PlayerBirthDate']))//np.timedelta64(1,'Y')
+    player_features.drop(['PlayerBirthDate'], axis = 1, inplace=True)
+    cols_to_std = ['PlayerHeight', 'PlayerWeight', 'PlayerAge', 'Yards']
+    sc = preprocessing.StandardScaler()
+    player_features[cols_to_std] = sc.fit_transform(player_features[cols_to_std])
+    # player_features.Yards.fillna(0, inplace=True)
+    player_features.rename(columns = {'PlayerHeight': 'RusherHeight', 'PlayerWeight': 'RusherWeight', 'PlayerAge': 'RusherAge', 'Yards':'RusherYards', 'NflId': 'RusherId', 'Position': 'RusherPosition'}, inplace = True)
+    return(player_features)
     
+
 def group_feature(dataset):
     """ This is to group different type of typings error
     """
@@ -126,7 +143,8 @@ def trim_data(dataset):
                  'PlayerCollegeName', 'Position', 
                  'Stadium', 'Location', # highly correlated with the HomeTeamAbbreviation
                   'DefensePersonnel', 'OffensePersonnel',  #splitted the results into multiple columns
-                  'StadiumType' # there might be not known in test data
+                  'StadiumType', # there might be not known in test data,
+                  'RusherId'
                  ]
     clean_data = dataset.drop(redundant_cols, axis = 1).drop_duplicates()
     

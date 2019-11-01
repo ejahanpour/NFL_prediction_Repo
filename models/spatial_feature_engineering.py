@@ -26,20 +26,6 @@ def change_pos(spatial_data, change_pos, with_pos, fake_position, defense = True
             pass
     return spatial_data , fake_position
 
-def rush_player_statistics(dataset):
-    player_features = dataset[['NflId', 'PlayerHeight', 'PlayerWeight', 'PlayerBirthDate', 'Position']].drop_duplicates()
-    player_rush_info = dataset.loc[dataset.NflId == dataset.NflIdRusher, ['PlayId', 'NflId', 'NflIdRusher', 'Yards']].drop_duplicates()
-    player_yards = player_rush_info[['NflId', 'Yards']].groupby('NflId').mean().reset_index()
-    player_features = pd.merge(player_features, player_yards, on = 'NflId', how = 'left')
-    player_features['PlayerHeight'] = player_features.PlayerHeight.map(lambda x: 12.0*int(x.split('-')[0]) + int(x.split('-')[1]))
-    player_features['PlayerAge'] = (pd.Timestamp('now') - pd.to_datetime(player_features['PlayerBirthDate']))//np.timedelta64(1,'Y')
-    player_features.drop(['PlayerBirthDate'], axis = 1, inplace=True)
-    cols_to_std = ['PlayerHeight', 'PlayerWeight', 'PlayerAge', 'Yards']
-    sc = preprocessing.StandardScaler()
-    player_features[cols_to_std] = sc.fit_transform(player_features[cols_to_std])
-    player_features.Yards.fillna(0, inplace=True)
-    return(player_features, sc)
-    
 
 ####################
 
