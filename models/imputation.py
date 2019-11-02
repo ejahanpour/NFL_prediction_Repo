@@ -10,8 +10,8 @@ import numpy as np
 def impute_categories(dataset, cat_features, encoder_list):
     for i, cat in enumerate(cat_features):
         temp = {k:v for v, k in enumerate(encoder_list[i])}
+        # print(dataset.head(1).transpose())
         dataset[cat] = dataset[cat].map(temp).fillna(100).astype(int)
-    # print(dataset.head(1).transpose())
     return(dataset)
 
 
