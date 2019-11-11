@@ -10,11 +10,11 @@ def train_test_split(dataset, column, train_size, sample_size):
     np.random.shuffle(unique_games)
     train_games, test_games = unique_games[:split_point], unique_games[split_point:partition_size]
     train_data = dataset[dataset[column].isin(train_games)]
-    train_data.to_csv('datasets/split_train_30.csv', index = False)
+    train_data.to_csv('datasets/split_train.csv', index = False)
     test_data = dataset[dataset[column].isin(test_games)]
-    test_data.to_csv('datasets/split_test_30.csv', index = False)
+    test_data.to_csv('datasets/split_test.csv', index = False)
 
 
 if __name__ == "__main__":
     dataset = pd.read_csv('datasets/train.csv', low_memory = False)
-    train_test_split(dataset, 'GameId', 0.7, 0.33)
+    train_test_split(dataset, 'GameId', 0.9, 1)

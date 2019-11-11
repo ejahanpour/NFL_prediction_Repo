@@ -1,5 +1,5 @@
 import sys, os
-sys.path.insert(0, '/Users/ejjaha/Desktop/NFL_prediction_Repo')
+sys.path.insert(0, '/Users/ehsan/Desktop/NFL_prediction')
 
 import pandas as pd
 import seaborn as sns
@@ -30,7 +30,8 @@ def cleaning_blue_print(data, is_train = True, save = False, player_statistics =
         player_strength = player_statistics
     # print(player_strength.head())
     clean_data = pd.merge(clean_data, player_strength, how = 'left', left_on = 'NflIdRusher', right_on = 'RusherId')
-    clean_data[['RusherHeight', 'RusherWeight', 'RusherYards', 'RusherAge']] = clean_data[['RusherHeight', 'RusherWeight', 'RusherYards', 'RusherAge']].fillna(0)
+    cols_to_fillna = ['RusherHeight', 'RusherWeight', 'RusherYards', 'RusherAge', 'RusherX', 'RusherY', 'RusherSpeed']
+    clean_data[cols_to_fillna] = clean_data[cols_to_fillna].fillna(0)
     engineered_data = data_cleaning.engineer_feature(clean_data)
     # imputation 
     imputed_data = data_cleaning.impute_feature(engineered_data)
@@ -59,8 +60,8 @@ def spatial_blue_print(data, is_train = True, save = False):
 
 
 def train_my_model(train_dataset):
-    clean_data, rusher_char = cleaning_blue_print(train_dataset, save = True)
-    spatial_data = spatial_blue_print(train_dataset, save = True)
+    clean_data, rusher_char = cleaning_blue_print(train_dataset, save = False)
+    spatial_data = spatial_blue_print(train_dataset, save = False)
     # for testing purposes
     # clean_data = pd.read_csv('datasets/train_cleaned_data_v1_1.csv')
     # spatial_data = pd.read_csv('datasets/train_spatial_data_v1_1.csv')
@@ -68,6 +69,7 @@ def train_my_model(train_dataset):
     total_data = pd.merge(clean_data, spatial_data, left_on = 'GameSnap', right_on = '_GameSnap', how = 'left')
     dataset = total_data[total_data.QB1_offense_mean_distance.notnull()].drop(['GameSnap', '_GameSnap'], axis = 1)   # in the dataset this column is not populated
     train, test = train_test_split(dataset, test_size = 0.3, random_state = 123)
+    # print(train.isnull().sum().to_string())
     x_train = train.drop(['Yards'], axis = 1)
     x_test = test.drop(['Yards'], axis = 1)
     y_train = train['Yards']
@@ -97,6 +99,7 @@ def make_my_predictions(model, encoder, cat_features, dataset, sample_prediction
     # model_dataset[cat_features] = encoder.transform(model_dataset[cat_features])
     predictions = model.predict(model_dataset)
     for i, pred in enumerate(predictions):
+        sample_prediction_df.iloc[i, :int(98 + pred)] = 0
         sample_prediction_df.iloc[i, int(98 + pred)] = 0.5
         sample_prediction_df.iloc[i, int(99 + pred):] = 1
     return sample_prediction_df, predictions
@@ -115,8 +118,11 @@ def MSE(predictions, observations):
 
 if __name__ == "__main__":
     # train_ds = pd.read_csv('datasets/split_train_30.csv')
-    # cleaning_blue_print(train_ds)
-    # cleaning_blue_print(train_data)
+    # clean_data, rusher_char = cleaning_blue_print(train_dataset, save = False)
+    # spatial_data = spatial_blue_print(train_dataset, save = False)
+    # total_data = pd.merge(clean_data, spatial_data, left_on = 'GameSnap', right_on = '_GameSnap', how = 'left')
+
+
     train_ds = pd.read_csv('datasets/split_train_30.csv')[:418]
     test_ds = pd.read_csv('datasets/split_test_30.csv')[:418]
     observations = test_ds[['PlayId', 'Yards']].drop_duplicates().Yards

@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import re
-from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
 
 ## helper functions
 def numerize(x):
@@ -44,18 +44,21 @@ def clean_reformat(dataset):
     return dataset
 
 def rush_player_statistics(dataset):
-    player_features = dataset[['NflId', 'PlayerHeight', 'PlayerWeight', 'PlayerBirthDate', 'Position']].drop_duplicates()
+    player_features = dataset[['NflId', 'PlayerHeight', 'PlayerWeight', 'PlayerBirthDate', 'Position', 'X', 'Y', 'S']].drop_duplicates()
     player_rush_info = dataset.loc[dataset.NflId == dataset.NflIdRusher, ['PlayId', 'NflId', 'NflIdRusher', 'Yards']].drop_duplicates()
     player_yards = player_rush_info[['NflId', 'Yards']].groupby('NflId').mean().reset_index()
     player_features = pd.merge(player_features, player_yards, on = 'NflId', how = 'left')
     player_features['PlayerHeight'] = player_features.PlayerHeight.map(lambda x: 12.0*int(x.split('-')[0]) + int(x.split('-')[1]))
     player_features['PlayerAge'] = (pd.Timestamp('now') - pd.to_datetime(player_features['PlayerBirthDate']))//np.timedelta64(1,'Y')
     player_features.drop(['PlayerBirthDate'], axis = 1, inplace=True)
-    cols_to_std = ['PlayerHeight', 'PlayerWeight', 'PlayerAge', 'Yards']
-    sc = preprocessing.StandardScaler()
+    cols_to_std = ['PlayerHeight', 'PlayerWeight', 'PlayerAge', 'Yards', 'S', 'X', 'Y']
+    sc = StandardScaler()
     player_features[cols_to_std] = sc.fit_transform(player_features[cols_to_std])
     # player_features.Yards.fillna(0, inplace=True)
-    player_features.rename(columns = {'PlayerHeight': 'RusherHeight', 'PlayerWeight': 'RusherWeight', 'PlayerAge': 'RusherAge', 'Yards':'RusherYards', 'NflId': 'RusherId', 'Position': 'RusherPosition'}, inplace = True)
+    player_features.rename(columns = {'PlayerHeight': 'RusherHeight', 
+    'PlayerWeight': 'RusherWeight', 'PlayerAge': 'RusherAge', 'Yards':'RusherYards', 
+    'NflId': 'RusherId', 'Position': 'RusherPosition', 'S':'RusherSpeed', 
+    'X': 'RusherX', 'Y':'RusherY'}, inplace = True)
     return(player_features)
     
 
